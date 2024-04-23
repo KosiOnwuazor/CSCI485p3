@@ -1,30 +1,65 @@
-use std::fs;
-use std::path::Path;
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <dirent.h>
+#include <sys/stat.h>
 
-fn find_files(start_dir: &Path, target_files: &[&str]) {
-    if let Ok(entries) = fs::read_dir(start_dir) {
-        for entry in entries {
-            if let Ok(entry) = entry {
-                let path = entry.path();
-                if path.is_file() {
-                    if let Some(file_name) = path.file_name() {
-                        if let Some(file_name_str) = file_name.to_str() {
-                            if target_files.contains(&file_name_str) {
-                                println!("Found file: {:?}", path);
-                            }
-                        }
-                    }
-                } else if path.is_dir() {
-                    find_files(&path, target_files);
+#define MAX_PATH_LENGTH 1024
+
+/**
+ * Recursively traverses the directory structure to locate the target files.
+ * 
+ * @param dir_path The path of the directory to search.
+ * @param target_files An array of target file names to search for.
+ * @param num_targets The number of target files.
+ */
+void traverse_directory(const char *dir_path, const char *target_files[], int num_targets) {
+    DIR *dir;
+    struct dirent *entry;
+    struct stat statbuf;
+    char path[MAX_PATH_LENGTH];
+
+    if (!(dir = opendir(dir_path))) {
+        perror("opendir");
+        return;
+    }
+
+    while ((entry = readdir(dir)) != NULL) {
+        snprintf(path, sizeof(path), "%s/%s", dir_path, entry->d_name);
+
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+            continue;
+
+        if (lstat(path, &statbuf) < 0) {
+            perror("lstat");
+            continue;
+        }
+
+        if (S_ISDIR(statbuf.st_mode)) {
+            // Recursively traverse directories
+            traverse_directory(path, target_files, num_targets);
+        } else if (S_ISREG(statbuf.st_mode)) {
+            // Check if the file matches any of the target file names
+            for (int i = 0; i < num_targets; i++) {
+                if (strcmp(entry->d_name, target_files[i]) == 0) {
+                    printf("Found file: %s\n", path);
                 }
             }
         }
     }
+
+    closedir(dir);
 }
 
-fn main() {
-    let start_dir = std::path::Path::new("/"); // Start from root directory
-    let target_files = vec!["special_file.txt", "secret_file.txt"];
+int main() {
+    const char *start_dir = "/"; // Start from root directory
+    const char *target_files[] = {"special_file.txt", "secret_file.txt"};
+    int num_targets = sizeof(target_files) / sizeof(target_files[0]);
 
-    find_files(start_dir, &target_files);
+    printf("Searching for files:\n");
+
+    // Start traversing the directory structure
+    traverse_directory(start_dir, target_files, num_targets);
+
+    return 0;
 }
