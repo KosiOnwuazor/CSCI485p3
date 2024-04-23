@@ -1,0 +1,30 @@
+use std::fs;
+use std::path::Path;
+
+fn find_files(start_dir: &Path, target_files: &[&str]) {
+    if let Ok(entries) = fs::read_dir(start_dir) {
+        for entry in entries {
+            if let Ok(entry) = entry {
+                let path = entry.path();
+                if path.is_file() {
+                    if let Some(file_name) = path.file_name() {
+                        if let Some(file_name_str) = file_name.to_str() {
+                            if target_files.contains(&file_name_str) {
+                                println!("Found file: {:?}", path);
+                            }
+                        }
+                    }
+                } else if path.is_dir() {
+                    find_files(&path, target_files);
+                }
+            }
+        }
+    }
+}
+
+fn main() {
+    let start_dir = std::path::Path::new("/"); // Start from root directory
+    let target_files = vec!["special_file.txt", "secret_file.txt"];
+
+    find_files(start_dir, &target_files);
+}
